@@ -1,46 +1,59 @@
+from astroquery.jplhorizons import Horizons
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# List of moons and their corresponding CSV files
+# Define moon IDs and time range
 moons = {
-    'Io': 'Io_1000_years_data.csv',
-    'Europa': 'Europa_1000_years_data.csv',
-    'Ganymede': 'Ganymede_1000_years_data.csv',
-    'Callisto': 'Callisto_1000_years_data.csv'
+    'Io': 501,
+    'Europa': 502,
+    'Ganymede': 503,
+    'Callisto': 504
 }
+start_date = '2025-01-01'
+end_date = '2200-01-01'
+step = '1y'  # Query every year
 
-# Loop through each moon and generate plots
-for moon_name, file_name in moons.items():
-    # Load the moon's data
-    moon_data = pd.read_csv(file_name)
+# Process each moon
+for moon_name, moon_id in moons.items():
+    # Query Horizons for real data
+    obj = Horizons(id=moon_id, location='500@10', epochs={'start': start_date, 'stop': end_date, 'step': step})
+    data = obj.elements()
 
-    # Check column names
-    print(f"Columns in {moon_name}: {moon_data.columns}")
+    # Convert to a Pandas DataFrame
+    df = data.to_pandas()
 
-    # Ensure correct column names are used
-    time_col = 'datetime_str'  # Column for timestamps
-    eccentricity_col = 'e'  # Column for eccentricity
-    distance_col = 'a'  # Column for semi-major axis (AU)
+    # Preprocess the 'datetime_str' column to remove "A.D."
+    df['datetime_str'] = df['datetime_str'].str.replace("A.D. ", "").str.strip()
 
-    # Convert semi-major axis from AU to meters
-    moon_data[distance_col] = moon_data[distance_col] * 1.496e11
+    # Convert 'datetime_str' to datetime objects
+    df['datetime_str'] = pd.to_datetime(df['datetime_str'], format='%Y-%b-%d %H:%M:%S.%f')
+
+    # Convert semi-major axis (AU) to meters
+    df['Orbital_Distance'] = df['a'] * 1.496e11
+
+    # Save the data to a CSV file
+    file_name = f"{moon_name}_2025_to_2200_data.csv"
+    df.to_csv(file_name, index=False)
+    print(f"Saved {moon_name} data to {file_name}")
 
     # Plot Eccentricity
     plt.figure(figsize=(12, 6))
-    plt.plot(moon_data[time_col], moon_data[eccentricity_col], label=f'{moon_name} Eccentricity')
-    plt.title(f'Eccentricity of {moon_name} Over 1000 Years')
+    plt.plot(df['datetime_str'], df['e'], label=f'{moon_name} Eccentricity')
+    plt.title(f'Eccentricity of {moon_name} (2025–2200)')
     plt.xlabel('Time')
     plt.ylabel('Eccentricity')
+    plt.xticks(df['datetime_str'][::10], rotation=45)  # Show every 10th year
     plt.legend()
     plt.grid()
     plt.show()
 
     # Plot Orbital Distance
     plt.figure(figsize=(12, 6))
-    plt.plot(moon_data[time_col], moon_data[distance_col], label=f'{moon_name} Orbital Distance')
-    plt.title(f'Orbital Distance of {moon_name} Over 1000 Years')
+    plt.plot(df['datetime_str'], df['Orbital_Distance'], label=f'{moon_name} Orbital Distance')
+    plt.title(f'Orbital Distance of {moon_name} (2025–2200)')
     plt.xlabel('Time')
     plt.ylabel('Distance (m)')
+    plt.xticks(df['datetime_str'][::10], rotation=45)  # Show every 10th year
     plt.legend()
     plt.grid()
     plt.show()
